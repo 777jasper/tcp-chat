@@ -18,7 +18,7 @@ int main(void){
 		perror("socket");
 		return 1;
 	}
-	printf("Socket created");
+	printf("Socket created\n");
 
 	if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1){
 		perror("setsockopt");
@@ -31,12 +31,27 @@ int main(void){
 	server_addr.sin_addr.s_addr = INADDR_ANY;
 	server_addr.sin_port = htons(PORT);
 
+	printf("Address configured\n");
+
+	if(bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1){
+		perror("bind");
+		close(server_fd);
+		return 1;
+	}
+
+	if(listen(server_fd, 10) == -1){
+		perror("listen");
+		close(server_fd);
+		return 1;
+	}
+	printf("Listening on port %d\n",PORT);
+
 
 	if(close(server_fd)<0){
 		perror("Close failed");
 		return 1;}
 	else{
-		printf("\nClose successful");
+		printf("Close successful");
 	}
 
 	return 0;
