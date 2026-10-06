@@ -9,9 +9,11 @@
 #define PORT 8080
 
 int main(void){
-	int server_fd;
+	int server_fd, client_fd;
 	int opt = 1;
 	struct sockaddr_in server_addr;
+	struct sockaddr_in client_addr;
+	socklen_t client_len = sizeof(client_addr);
 
 	server_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if(server_fd == -1){
@@ -46,10 +48,29 @@ int main(void){
 	}
 	printf("Listening on port %d\n",PORT);
 
+	client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
+	if(client_fd == -1){
+		perror("accept");
+		close(server_fd);
+		return 1;
+	}
+
+	printf("Client connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+
+	if(close(client_fd)<0){
+		perror("Client close failed");
+		return 1;
+	}
+	else{
+		printf("Client close succeful\n");
+	}
+
+
 
 	if(close(server_fd)<0){
-		perror("Close failed");
-		return 1;}
+		perror("Server close failed");
+		return 1;
+	}
 	else{
 		printf("Close successful");
 	}
