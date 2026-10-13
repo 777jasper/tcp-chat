@@ -82,17 +82,21 @@ int main(void){
 
 	printf("Client connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
+	while(1){
+
 	n = recv(client_fd, buf, sizeof(buf)-1, 0);
 	
 	if(n==-1){
 		perror("recv: failed");
-		close(client_fd);
-		close(server_fd);
-		return 1;
+		/*close(client_fd);
+		 * close(server_fd);
+		 * return 1; */
+		break;
 	}
 
 	else if(n==0){
 		printf("Client disconnected\n");
+		break;
 	}
 	
 	else{
@@ -101,9 +105,11 @@ int main(void){
 		buf[n] = '\0';
 		printf("Received: %s", buf);
 		if(send(client_fd, buf, n, 0)==-1){
-			perror("send failed");}
+			perror("send failed");
+			break;		
+		}
 	}
-	
+	}
 	if(close(client_fd)<0){
 		perror("Client socket close failed");
 		return 1;
