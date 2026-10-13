@@ -13,6 +13,8 @@ int main(void)
 {
     int sock_fd;
     struct sockaddr_in server_addr;
+    char buf[1024];
+    ssize_t n;
 
     /* Create a TCP socket: AF_INET = IPv4, SOCK_STREAM = TCP.
      * Returns a file descriptor, or -1 on failure. */
@@ -52,6 +54,41 @@ int main(void)
     }
 
     printf("Connected to the server\n");
+
+
+    while(1){
+	    // read one line from the keyboard (include new line)
+
+	    if(fgets(buf, sizeof(buf), stdin) == NULL){
+		    break;	// Ctrl+D: end of input
+	    }
+
+	    // optional: type /quit to leave
+	    if(strncmp(buf, "/quit", 5)==0)
+		    break;
+	    // send only the typed characters, not the whole buffer
+	    if(send(sock_fd, buf, strlen(buf), 0) == -1){
+		    perror("send: failed");
+		    break;
+	    }
+
+	    n = recv(sock_fd, buf, sizeof(buf)-1, 0); // wait for the echo from the server
+
+	    if(n==-1){
+		    perror("recv: failed");
+		    break;
+	    }
+	    else if(n==0){
+		    printf("Server closed the connection\n");
+		    break;
+	    }
+	    else{
+		    buf[n]='\0'; // make it a valid C string
+
+		    printf("Echo: %s", buf); /* no \n: it is already in buf */
+	    }
+    }
+
 
     /* Cleanup: close the socket so the file descriptor is released
      * and the server sees that we disconnected. */
