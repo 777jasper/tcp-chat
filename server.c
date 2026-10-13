@@ -14,6 +14,11 @@ int main(void){
 	struct sockaddr_in server_addr;
 	struct sockaddr_in client_addr;
 	socklen_t client_len = sizeof(client_addr);
+	char buf[1024];
+	ssize_t n;
+
+
+
 
 	/* Create a TCP socket: AF_INET = IPv4, SOCK_STREAM = TCP.
 	 * Returns a file descriptor or -1 on failure. */
@@ -77,6 +82,28 @@ int main(void){
 
 	printf("Client connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
 
+	n = recv(client_fd, buf, sizeof(buf)-1, 0);
+	
+	if(n==-1){
+		perror("recv: failed");
+		close(client_fd);
+		close(server_fd);
+		return 1;
+	}
+
+	else if(n==0){
+		printf("Client disconnected\n");
+	}
+	
+	else{
+		// n>0
+
+		buf[n] = '\0';
+		printf("Received: %s", buf);
+		if(send(client_fd, buf, n, 0)==-1){
+			perror("send failed");}
+	}
+	
 	if(close(client_fd)<0){
 		perror("Client socket close failed");
 		return 1;
