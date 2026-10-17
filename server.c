@@ -1,3 +1,4 @@
+#include<pthread.h>
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
@@ -8,15 +9,51 @@
 
 #define PORT 8080 // port the server listens on
 
-int main(void){
-	int server_fd, client_fd;
-	int opt = 1;
-	struct sockaddr_in server_addr;
-	struct sockaddr_in client_addr;
-	socklen_t client_len = sizeof(client_addr);
+// struct to hold client information
+typedef struct client{
+	int sockfd; // this is client socket
+	struct sockaddr_in addr; // this is client address
+} client_t;
+
+// handle client
+void *handle_client(void *arg){
+	client_t *c = (client_t *)arg;
 	char buf[1024];
 	ssize_t n;
+	while(1){
+		n = recv(c->sockfd, buf, sizeof(buf)-1, 0);
 
+		if(n==-1){
+			perror("recv:failed");
+			break;
+		}
+		if(n==0){
+			printf("Client disconnected\n");
+			break;
+		}
+		else{
+			buf[n] = '\0';
+			printf("Received: %s", buf);
+			if(send(c->sockfd, buf, n, 0)==-1){
+				perror("Send failed");
+				break;
+			}
+		}
+	}
+	close(c->sockfd); // closing client socket
+	printf("Client socket closed\n");
+
+	// Free the dynamically allocated client structure
+	free(c);
+	
+	return NULL;
+
+}
+
+int main(void){
+	int server_fd;
+	int opt = 1;
+	struct sockaddr_in server_addr;
 
 
 
@@ -70,62 +107,37 @@ int main(void){
 	 *  Returns a NEW socket (client_fd) used only for that client;
 	 * server_fd stays open for listening. Also fills in client_addr. */
 
-	client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_len);
-	if(client_fd == -1){
-		perror("accept: failed");
-		close(server_fd);
-		return 1;
-	}
-
-
-	/* inet_ntoa: binary IP -> text. ntohs: network byte order -> normal number. */
-
-	printf("Client connected: %s:%d\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-
 	while(1){
-
-	n = recv(client_fd, buf, sizeof(buf)-1, 0);
 	
-	if(n==-1){
-		perror("recv: failed");
-		/*close(client_fd);
-		 * close(server_fd);
-		 * return 1; */
-		break;
-	}
-
-	else if(n==0){
-		printf("Client disconnected\n");
-		break;
-	}
-	
-	else{
-		// n>0
-
-		buf[n] = '\0';
-		printf("Received: %s", buf);
-		if(send(client_fd, buf, n, 0)==-1){
-			perror("send failed");
-			break;		
+		client_t *c = malloc(sizeof(client_t));
+		if(c == NULL){
+			perror("malloc");
+			continue;
 		}
-	}
-	}
-	if(close(client_fd)<0){
-		perror("Client socket close failed");
-		return 1;
-	}
-	else{
-		printf("Client socket close succeful\n");
-	}
+		socklen_t len = sizeof(c->addr);
+
+		c->sockfd = accept(server_fd, (struct sockaddr *)&c->addr, &len);
+		if(c->sockfd == -1){
+			perror("accept:failed");
+			free(c);
+			continue;
+		}
+
+		// print which client connected to the server
+		/* inet_ntoa: binary IP -> text. ntohs: network byte order -> normal number. */
+		
+		printf("Client connected: %s:%d\n", inet_ntoa(c->addr.sin_addr), ntohs(c->addr.sin_port));
 
 
+		pthread_t tid;
+		if(pthread_create(&tid, NULL, handle_client, c) != 0){
+			printf("Failed to create thread for client \n");
+			close(c->sockfd); /* close client socket */
+			free(c); /* free the structure assigned using malloc */
+			continue;
+		}
 
-	if(close(server_fd)<0){
-		perror("Server socket close failed");
-		return 1;
-	}
-	else{
-		printf("Server socket close successful\n");
+		pthread_detach(tid);
 	}
 
 	return 0;
