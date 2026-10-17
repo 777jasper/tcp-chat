@@ -5,17 +5,55 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include<pthread.h>
 
 #define PORT 8080	//must match the port the server listens on
 #define SERVER_IP "127.0.0.1"	// loopback address = this same computer
+
+// read data from server and prints it
+void *receive_loop(void *arg){
+	int sock_fd = *(int *)arg;
+	char buf[1024];
+	ssize_t n;
+
+	while(1){
+		n = recv(sock_fd, buf, sizeof(buf)-1,0);
+
+		if(n==-1){
+			perror("recv: failed");
+			break;
+		}
+		if(n==0){
+			printf("Server closed the connection\n");
+			break;
+		}
+		else{
+			buf[n] = '\0';
+			printf("%s",buf);
+		}
+	}
+
+	//closing the socket
+	if(close(sock_fd)<0){
+		perror("Client socket close failed");
+		exit(1);
+	}
+	printf("Client socket closed\n");
+	exit(0);
+	return NULL;
+}
+
+
+
+
+
 
 int main(void)
 {
     int sock_fd;
     struct sockaddr_in server_addr;
     char buf[1024];
-    ssize_t n;
-
+    
     /* Create a TCP socket: AF_INET = IPv4, SOCK_STREAM = TCP.
      * Returns a file descriptor, or -1 on failure. */
 
@@ -48,12 +86,22 @@ int main(void)
      * The client needs no bind() or listen(); the system picks its port. */
 
     if(connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1){
-	    perror("Connection refused");
+	    perror("No server listening");
 	    close(sock_fd);
 	    return 1;
     }
 
     printf("Connected to the server\n");
+
+    pthread_t tid;
+    if(pthread_create(&tid, NULL, receive_loop, &sock_fd) !=0){
+	    perror("Thread creation failed");
+	    close(sock_fd);
+	    return 1;
+    }
+    pthread_detach(tid);
+
+
 
 
     while(1){
@@ -70,22 +118,6 @@ int main(void)
 	    if(send(sock_fd, buf, strlen(buf), 0) == -1){
 		    perror("send: failed");
 		    break;
-	    }
-
-	    n = recv(sock_fd, buf, sizeof(buf)-1, 0); // wait for the echo from the server
-
-	    if(n==-1){
-		    perror("recv: failed");
-		    break;
-	    }
-	    else if(n==0){
-		    printf("Server closed the connection\n");
-		    break;
-	    }
-	    else{
-		    buf[n]='\0'; // make it a valid C string
-
-		    printf("Echo: %s", buf); /* no \n: it is already in buf */
 	    }
     }
 
